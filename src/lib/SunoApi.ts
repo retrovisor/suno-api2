@@ -377,7 +377,7 @@ class SunoApi {
   }
 
   /**
-	@@ -205,26 +460,28 @@
+	
       make_instrumental,
       model,
       wait_audio,
@@ -488,7 +488,7 @@ class SunoApi {
         id: audio.id,
         title: audio.title,
         image_url: audio.image_url,
-	@@ -346,46 +606,34 @@
+	
       await sleep(2); // Wait for 2 seconds before polling again
       lyricsResponse = await this.client.get(
         `${SunoApi.BASE_URL}/api/generate/lyrics/${generateId}`
