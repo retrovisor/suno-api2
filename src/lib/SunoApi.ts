@@ -488,6 +488,39 @@ class SunoApi {
         id: audio.id,
         title: audio.title,
         image_url: audio.image_url,
+	      lyric: audio.metadata.prompt,
+        audio_url: audio.audio_url,
+        video_url: audio.video_url,
+        created_at: audio.created_at,
+        model_name: audio.model_name,
+        status: audio.status,
+        gpt_description_prompt: audio.metadata.gpt_description_prompt,
+        prompt: audio.metadata.prompt,
+        type: audio.metadata.type,
+        tags: audio.metadata.tags,
+        negative_tags: audio.metadata.negative_tags,
+        duration: audio.metadata.duration
+      }));
+    }
+  }
+  /**
+   * Generates lyrics based on a given prompt.
+   * @param prompt The prompt for generating lyrics.
+   * @returns The generated lyrics text.
+   */
+  public async generateLyrics(prompt: string): Promise<string> {
+    await this.keepAlive(false);
+    // Initiate lyrics generation
+    const generateResponse = await this.client.post(
+      `${SunoApi.BASE_URL}/api/generate/lyrics/`,
+      { prompt }
+    );
+    const generateId = generateResponse.data.id;
+    // Poll for lyrics completion
+    let lyricsResponse = await this.client.get(
+      `${SunoApi.BASE_URL}/api/generate/lyrics/${generateId}`
+    );
+    while (lyricsResponse?.data?.status !== 'complete') {
 	
       await sleep(2); // Wait for 2 seconds before polling again
       lyricsResponse = await this.client.get(
