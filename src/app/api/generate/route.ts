@@ -7,9 +7,22 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   if (req.method === 'POST') {
     try {
+      // Parse the incoming JSON request body
       const body = await req.json();
       const { prompt, make_instrumental, model, wait_audio } = body;
 
+      // Validate the required fields
+      if (!prompt || typeof prompt !== 'string') {
+        return new NextResponse(JSON.stringify({ error: 'Invalid or missing "prompt" field.' }), {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+
+      // Generate the audio using the sunoApi
       const audioInfo = await (await sunoApi).generate(
         prompt,
         Boolean(make_instrumental),
@@ -17,6 +30,7 @@ export async function POST(req: NextRequest) {
         Boolean(wait_audio)
       );
 
+      // Return the successful response
       return new NextResponse(JSON.stringify(audioInfo), {
         status: 200,
         headers: {
@@ -25,18 +39,41 @@ export async function POST(req: NextRequest) {
         }
       });
     } catch (error: any) {
-      console.error('Error generating custom audio:', JSON.stringify(error.response.data));
-      if (error.response.status === 402) {
-        return new NextResponse(JSON.stringify({ error: error.response.data.detail }), {
-          status: 402,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
+      // Initialize default error message and status
+      let errorMessage = 'Internal server error.';
+      let statusCode = 500;
+
+      // Enhanced logging for different error scenarios
+      if (error.response) {
+        // The request was made and the server responded with a status code outside of 2xx
+        console.error('Error generating custom audio:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
         });
+
+        // Handle specific status codes
+        if (error.response.status === 402) {
+          errorMessage = error.response.data.detail || 'Payment Required.';
+          statusCode = 402;
+        } else {
+          errorMessage = error.response.data.detail
+            ? `Internal server error: ${error.response.data.detail}`
+            : 'Internal server error.';
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        errorMessage = 'No response received from the server.';
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error setting up the request:', error.message || error);
+        errorMessage = error.message || 'An unexpected error occurred.';
       }
-      return new NextResponse(JSON.stringify({ error: 'Internal server error: ' + JSON.stringify(error.response.data.detail) }), {
-        status: 500,
+
+      // Return the appropriate error response to the client
+      return new NextResponse(JSON.stringify({ error: errorMessage }), {
+        status: statusCode,
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders
@@ -44,6 +81,7 @@ export async function POST(req: NextRequest) {
       });
     }
   } else {
+    // Handle unsupported HTTP methods
     return new NextResponse('Method Not Allowed', {
       headers: {
         Allow: 'POST',
@@ -53,7 +91,6 @@ export async function POST(req: NextRequest) {
     });
   }
 }
-
 
 export async function OPTIONS(request: Request) {
   return new Response(null, {
