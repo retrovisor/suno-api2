@@ -16,6 +16,7 @@ globalForSunoApi.sunoApiCache = cache;
 
 const logger = pino();
 export const DEFAULT_MODEL = 'chirp-v3-5';
+
 export interface AudioInfo {
   id: string; // Unique identifier for the audio
   title?: string; // Title of the audio
@@ -34,6 +35,7 @@ export interface AudioInfo {
   duration?: string; // Duration of the audio
   error_message?: string; // Error message if any
 }
+
 class SunoApi {
   private static BASE_URL: string = 'https://studio-api.prod.suno.com';
   private static CLERK_BASE_URL: string = 'https://clerk.suno.com';
@@ -284,7 +286,7 @@ class SunoApi {
 
     if (this.ghostCursorEnabled)
       this.cursor = await createCursor(page);
-
+    
     logger.info('Triggering the CAPTCHA');
     await this.click(page, { x: 318, y: 13 }); // close all popups
 
@@ -374,9 +376,7 @@ class SunoApi {
       `https://clerk.suno.com/v1/client?__clerk_api_version=2021-02-05&_clerk_js_version=${SunoApi.CLERK_VERSION}&_method=PATCH`,
       { captcha_error: '300030,300030,300030' },
       { headers: { 'content-type': 'application/x-www-form-urlencoded' } });
-    }
-
-	
+  }
 
   /**
    * Generate a song based on the prompt.
@@ -396,22 +396,19 @@ class SunoApi {
     const audios = this.generateSongs(
       prompt,
       false,
-      undefined,      
-	undefined,      
+      undefined,
+      undefined,
       make_instrumental,
       model,
-      wait_audio,
-      negative_tags
+      wait_audio
     );
     const costTime = Date.now() - startTime;
-    logger.info(
-      'Custom Generate Response:\n' + JSON.stringify(audios, null, 2)
-    );
+    logger.info('Generate Response:\n' + JSON.stringify(audios, null, 2));
     logger.info('Cost time: ' + costTime);
     return audios;
   }
 
-/**
+  /**
    * Calls the concatenate endpoint for a clip to generate the whole song.
    * @param clip_id The ID of the audio clip to concatenate.
    * @returns A promise that resolves to an AudioInfo object representing the concatenated audio.
@@ -420,6 +417,7 @@ class SunoApi {
   public async concatenate(clip_id: string): Promise<AudioInfo> {
     await this.keepAlive(false);
     const payload: any = { clip_id: clip_id };
+
     const response = await this.client.post(
       `${SunoApi.BASE_URL}/api/generate/concat/v2/`,
       payload,
@@ -472,7 +470,6 @@ class SunoApi {
     return audios;
   }
 
-	
   /**
    * Generates songs based on the provided parameters.
    *
@@ -571,7 +568,7 @@ class SunoApi {
         id: audio.id,
         title: audio.title,
         image_url: audio.image_url,
-	      lyric: audio.metadata.prompt,
+        lyric: audio.metadata.prompt,
         audio_url: audio.audio_url,
         video_url: audio.video_url,
         created_at: audio.created_at,
@@ -586,6 +583,7 @@ class SunoApi {
       }));
     }
   }
+
   /**
    * Generates lyrics based on a given prompt.
    * @param prompt The prompt for generating lyrics.
@@ -599,20 +597,22 @@ class SunoApi {
       { prompt }
     );
     const generateId = generateResponse.data.id;
+
     // Poll for lyrics completion
     let lyricsResponse = await this.client.get(
       `${SunoApi.BASE_URL}/api/generate/lyrics/${generateId}`
     );
     while (lyricsResponse?.data?.status !== 'complete') {
-	
       await sleep(2); // Wait for 2 seconds before polling again
       lyricsResponse = await this.client.get(
         `${SunoApi.BASE_URL}/api/generate/lyrics/${generateId}`
       );
     }
+
     // Return the generated lyrics text
     return lyricsResponse.data;
   }
+
   /**
    * Extends an existing audio clip by generating additional content based on the provided prompt.
    *
@@ -646,6 +646,7 @@ class SunoApi {
     const response = await this.client.post(
       `${SunoApi.BASE_URL}/api/edit/stems/${song_id}`, {}
     );
+
     console.log('generateStems response:\n', response?.data);
     return response.data.clips.map((clip: any) => ({
       id: clip.id,
@@ -656,6 +657,8 @@ class SunoApi {
       duration: clip.metadata.duration
     }));
   }
+
+
   /**
    * Get the lyric alignment for a song.
    * @param song_id The ID of the song to get the lyric alignment for.
@@ -664,6 +667,7 @@ class SunoApi {
   public async getLyricAlignment(song_id: string): Promise<object> {
     await this.keepAlive(false);
     const response = await this.client.get(`${SunoApi.BASE_URL}/api/gen/${song_id}/aligned_lyrics/v2/`);
+
     console.log(`getLyricAlignment ~ response:`, response.data);
     return response.data?.aligned_words.map((transcribedWord: any) => ({
       word: transcribedWord.word,
@@ -673,6 +677,7 @@ class SunoApi {
       p_align: transcribedWord.p_align
     }));
   }
+
   /**
    * Processes the lyrics (prompt) from the audio metadata into a more readable format.
    * @param prompt The original lyrics text.
@@ -683,12 +688,15 @@ class SunoApi {
     // The implementation here can be adjusted according to the actual lyrics format.
     // For example, if the lyrics exist as continuous text, it might be necessary to split them based on specific markers (such as periods, commas, etc.).
     // The following implementation assumes that the lyrics are already separated by newlines.
+
     // Split the lyrics using newline and ensure to remove empty lines.
     const lines = prompt.split('\n').filter((line) => line.trim() !== '');
+
     // Reassemble the processed lyrics lines into a single string, separated by newlines between each line.
     // Additional formatting logic can be added here, such as adding specific markers or handling special lines.
     return lines.join('\n');
   }
+
   /**
    * Retrieves audio information for the given song IDs.
    * @param songIds An optional array of song IDs to retrieve information for.
@@ -735,6 +743,7 @@ class SunoApi {
       error_message: audio.metadata.error_message
     }));
   }
+
   /**
    * Retrieves information for a specific audio clip.
    * @param clipId The ID of the audio clip to retrieve information for.
@@ -747,6 +756,7 @@ class SunoApi {
     );
     return response.data;
   }
+
   public async get_credits(): Promise<object> {
     await this.keepAlive(false);
     const response = await this.client.get(
