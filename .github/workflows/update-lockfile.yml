@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: true  # This is the default setting
+          persist-credentials: true  # Default is true
           fetch-depth: 0  # Fetch all history for accurate git operations
 
       # Step 2: Setup Node.js
@@ -25,15 +25,21 @@ jobs:
           node-version: '16'  # Specify your Node.js version
           cache: 'pnpm'  # Enable pnpm caching
 
-      # Step 3: Install pnpm
-      - name: Install pnpm
-        run: npm install -g pnpm
+      # Step 3: Setup pnpm using the official action
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7  # Specify the pnpm version you need
 
-      # Step 4: Install dependencies (updates pnpm-lock.yaml)
+      # Step 4: Verify pnpm installation (Optional but recommended)
+      - name: Verify pnpm installation
+        run: pnpm --version
+
+      # Step 5: Install dependencies (updates pnpm-lock.yaml)
       - name: Install dependencies
         run: pnpm install
 
-      # Step 5: Check if pnpm-lock.yaml changed
+      # Step 6: Check if pnpm-lock.yaml changed
       - name: Check for pnpm-lock.yaml changes
         id: lockfile_changes
         run: |
@@ -42,7 +48,7 @@ jobs:
           git add pnpm-lock.yaml
           git diff --cached --quiet || echo "lockfile_changed=true" >> $GITHUB_ENV
 
-      # Step 6: Commit and push changes if lockfile changed
+      # Step 7: Commit and push changes if lockfile changed
       - name: Commit and push changes
         if: env.lockfile_changed == 'true'
         run: |
