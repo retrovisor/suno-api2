@@ -376,6 +376,8 @@ class SunoApi {
       { headers: { 'content-type': 'application/x-www-form-urlencoded' } });
     }
 
+	
+
   /**
    * Generate a song based on the prompt.
    * @param prompt The text prompt to generate audio from.
@@ -408,6 +410,69 @@ class SunoApi {
     logger.info('Cost time: ' + costTime);
     return audios;
   }
+
+/**
+   * Calls the concatenate endpoint for a clip to generate the whole song.
+   * @param clip_id The ID of the audio clip to concatenate.
+   * @returns A promise that resolves to an AudioInfo object representing the concatenated audio.
+   * @throws Error if the response status is not 200.
+   */
+  public async concatenate(clip_id: string): Promise<AudioInfo> {
+    await this.keepAlive(false);
+    const payload: any = { clip_id: clip_id };
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/generate/concat/v2/`,
+      payload,
+      {
+        timeout: 10000 // 10 seconds timeout
+      }
+    );
+    if (response.status !== 200) {
+      throw new Error('Error response:' + response.statusText);
+    }
+    return response.data;
+  }
+
+  /**
+   * Generates custom audio based on provided parameters.
+   *
+   * @param prompt The text prompt to generate audio from.
+   * @param tags Tags to categorize the generated audio.
+   * @param title The title for the generated audio.
+   * @param make_instrumental Indicates if the generated audio should be instrumental.
+   * @param wait_audio Indicates if the method should wait for the audio file to be fully generated before returning.
+   * @param negative_tags Negative tags that should not be included in the generated audio.
+   * @returns A promise that resolves to an array of AudioInfo objects representing the generated audios.
+   */
+  public async custom_generate(
+    prompt: string,
+    tags: string,
+    title: string,
+    make_instrumental: boolean = false,
+    model?: string,
+    wait_audio: boolean = false,
+    negative_tags?: string
+  ): Promise<AudioInfo[]> {
+    const startTime = Date.now();
+    const audios = await this.generateSongs(
+      prompt,
+      true,
+      tags,
+      title,
+      make_instrumental,
+      model,
+      wait_audio,
+      negative_tags
+    );
+    const costTime = Date.now() - startTime;
+    logger.info(
+      'Custom Generate Response:\n' + JSON.stringify(audios, null, 2)
+    );
+    logger.info('Cost time: ' + costTime);
+    return audios;
+  }
+
+	
   /**
    * Generates songs based on the provided parameters.
    *
