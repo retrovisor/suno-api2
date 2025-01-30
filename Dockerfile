@@ -19,7 +19,7 @@ RUN if [ -z "$BROWSER" ]; then echo "Warning: BROWSER is not set; will use chrom
 ENV BROWSER=${BROWSER:-chromium}
 
 RUN npm install --only=production
-RUN npx playwright install $BROWSER
+
 COPY --from=builder /src/.next ./.next
 EXPOSE 3000
 CMD ["npm", "run", "start"]
