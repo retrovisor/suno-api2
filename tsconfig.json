@@ -5,8 +5,11 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+        "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "module": "esnext",
+     "target": "ESNext",
+    "module": "ESNext",
+     
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -17,8 +20,9 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./src/*"]
+     "paths": {
+      "@/*": ["./src/*"],
+      "playwright-core": ["./node_modules/rebrowser-playwright-core"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
