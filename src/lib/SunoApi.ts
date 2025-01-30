@@ -16,7 +16,24 @@ globalForSunoApi.sunoApiCache = cache;
 
 const logger = pino();
 export const DEFAULT_MODEL = 'chirp-v3-5';
-	@@ -30,45 +39,67 @@ export interface AudioInfo {
+export interface AudioInfo {
+  id: string; // Unique identifier for the audio
+  title?: string; // Title of the audio
+  image_url?: string; // URL of the image associated with the audio
+  lyric?: string; // Lyrics of the audio
+  audio_url?: string; // URL of the audio file
+  video_url?: string; // URL of the video associated with the audio
+  created_at: string; // Date and time when the audio was created
+  model_name: string; // Name of the model used for audio generation
+  gpt_description_prompt?: string; // Prompt for GPT description
+  prompt?: string; // Prompt for audio generation
+  status: string; // Status
+  type?: string;
+  tags?: string; // Genre of music.
+  negative_tags?: string; // Negative tags of music.
+  duration?: string; // Duration of the audio
+  error_message?: string; // Error message if any
+}
 class SunoApi {
   private static BASE_URL: string = 'https://studio-api.prod.suno.com';
   private static CLERK_BASE_URL: string = 'https://clerk.suno.com';
@@ -84,7 +101,11 @@ class SunoApi {
   private async getClerkLatestVersion() {
     // URL to get clerk version ID
     const getClerkVersionUrl = `${SunoApi.JSDELIVR_BASE_URL}/v1/package/npm/@clerk/clerk-js`;
-	@@ -80,26 +111,28 @@ class SunoApi {
+    // Get clerk version ID
+    const versionListResponse = await this.client.get(getClerkVersionUrl);
+    if (!versionListResponse?.data?.['tags']['latest']) {
+      throw new Error(
+        'Failed to get clerk version info, Please try again later'
       );
     }
     // Save clerk version ID for auth
@@ -113,7 +134,11 @@ class SunoApi {
   }
 
   /**
-	@@ -111,16 +144,238 @@ class SunoApi {
+   * Keep the session alive.
+   * @param isWait Indicates if the method should wait for the session to be fully renewed before returning.
+   */
+  public async keepAlive(isWait?: boolean): Promise<void> {
+    if (!this.sid) {
       throw new Error('Session ID is not set. Cannot renew token.');
     }
     // URL to renew session token
@@ -352,7 +377,26 @@ class SunoApi {
   }
 
   /**
-	@@ -225,6 +480,8 @@ class SunoApi {
+	@@ -205,26 +460,28 @@
+      make_instrumental,
+      model,
+      wait_audio,
+      negative_tags
+    );
+    const costTime = Date.now() - startTime;
+    logger.info(
+      'Custom Generate Response:\n' + JSON.stringify(audios, null, 2)
+    );
+    logger.info('Cost time: ' + costTime);
+    return audios;
+  }
+  /**
+   * Generates songs based on the provided parameters.
+   *
+   * @param prompt The text prompt to generate songs from.
+   * @param isCustom Indicates if the generation should consider custom parameters like tags and title.
+   * @param tags Optional tags to categorize the song, used only if isCustom is true.
+   * @param title Optional title for the song, used only if isCustom is true.
    * @param make_instrumental Indicates if the generated song should be instrumental.
    * @param wait_audio Indicates if the method should wait for the audio file to be fully generated before returning.
    * @param negative_tags Negative tags that should not be included in the generated audio.
@@ -361,7 +405,10 @@ class SunoApi {
    * @returns A promise that resolves to an array of AudioInfo objects representing the generated songs.
    */
   private async generateSongs(
-	@@ -235,14 +492,21 @@ class SunoApi {
+    prompt: string,
+    isCustom: boolean,
+    tags?: string,
+    title?: string,
     make_instrumental?: boolean,
     model?: string,
     wait_audio: boolean = false,
@@ -383,7 +430,33 @@ class SunoApi {
     };
     if (isCustom) {
       payload.tags = tags;
-	@@ -276,13 +540,10 @@ class SunoApi {
+      payload.title = title;
+      payload.negative_tags = negative_tags;
+      payload.prompt = prompt;
+    } else {
+      payload.gpt_description_prompt = prompt;
+    }
+    logger.info(
+      'generateSongs payload:\n' +
+        JSON.stringify(
+          {
+            prompt: prompt,
+            isCustom: isCustom,
+            tags: tags,
+            title: title,
+            make_instrumental: make_instrumental,
+            wait_audio: wait_audio,
+            negative_tags: negative_tags,
+            payload: payload
+          },
+          null,
+          2
+        )
+    );
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/generate/v2/`,
+      payload,
+      {
         timeout: 10000 // 10 seconds timeout
       }
     );
@@ -394,7 +467,20 @@ class SunoApi {
     //Want to wait for music file generation
     if (wait_audio) {
       const startTime = Date.now();
-	@@ -303,8 +564,7 @@ class SunoApi {
+      let lastResponse: AudioInfo[] = [];
+      await sleep(5, 5);
+      while (Date.now() - startTime < 100000) {
+        const response = await this.get(songIds);
+        const allCompleted = response.every(
+          (audio) => audio.status === 'streaming' || audio.status === 'complete'
+        );
+        const allError = response.every((audio) => audio.status === 'error');
+        if (allCompleted || allError) {
+          return response;
+        }
+        lastResponse = response;
+        await sleep(3, 6);
+        await this.keepAlive(true);
       }
       return lastResponse;
     } else {
@@ -402,7 +488,25 @@ class SunoApi {
         id: audio.id,
         title: audio.title,
         image_url: audio.image_url,
-	@@ -366,26 +626,14 @@ class SunoApi {
+	@@ -346,46 +606,34 @@
+      await sleep(2); // Wait for 2 seconds before polling again
+      lyricsResponse = await this.client.get(
+        `${SunoApi.BASE_URL}/api/generate/lyrics/${generateId}`
+      );
+    }
+    // Return the generated lyrics text
+    return lyricsResponse.data;
+  }
+  /**
+   * Extends an existing audio clip by generating additional content based on the provided prompt.
+   *
+   * @param audioId The ID of the audio clip to extend.
+   * @param prompt The prompt for generating additional content.
+   * @param continueAt Extend a new clip from a song at mm:ss(e.g. 00:30). Default extends from the end of the song.
+   * @param tags Style of Music.
+   * @param title Title of the song.
+   * @returns A promise that resolves to an AudioInfo object representing the extended audio clip.
+   */
   public async extendAudio(
     audioId: string,
     prompt: string = '',
@@ -417,7 +521,66 @@ class SunoApi {
   }
 
   /**
-	@@ -460,7 +708,7 @@ class SunoApi {
+   * Generate stems for a song.
+   * @param song_id The ID of the song to generate stems for.
+   * @returns A promise that resolves to an AudioInfo object representing the generated stems.
+   */
+  public async generateStems(song_id: string): Promise<AudioInfo[]> {
+    await this.keepAlive(false);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/edit/stems/${song_id}`, {}
+    );
+    console.log('generateStems response:\n', response?.data);
+    return response.data.clips.map((clip: any) => ({
+      id: clip.id,
+      status: clip.status,
+      created_at: clip.created_at,
+      title: clip.title,
+      stem_from_id: clip.metadata.stem_from_id,
+      duration: clip.metadata.duration
+    }));
+  }
+  /**
+   * Get the lyric alignment for a song.
+   * @param song_id The ID of the song to get the lyric alignment for.
+   * @returns A promise that resolves to an object containing the lyric alignment.
+   */
+  public async getLyricAlignment(song_id: string): Promise<object> {
+    await this.keepAlive(false);
+    const response = await this.client.get(`${SunoApi.BASE_URL}/api/gen/${song_id}/aligned_lyrics/v2/`);
+    console.log(`getLyricAlignment ~ response:`, response.data);
+    return response.data?.aligned_words.map((transcribedWord: any) => ({
+      word: transcribedWord.word,
+      start_s: transcribedWord.start_s,
+      end_s: transcribedWord.end_s,
+      success: transcribedWord.success,
+      p_align: transcribedWord.p_align
+    }));
+  }
+  /**
+   * Processes the lyrics (prompt) from the audio metadata into a more readable format.
+   * @param prompt The original lyrics text.
+   * @returns The processed lyrics text.
+   */
+  private parseLyrics(prompt: string): string {
+    // Assuming the original lyrics are separated by a specific delimiter (e.g., newline), we can convert it into a more readable format.
+    // The implementation here can be adjusted according to the actual lyrics format.
+    // For example, if the lyrics exist as continuous text, it might be necessary to split them based on specific markers (such as periods, commas, etc.).
+    // The following implementation assumes that the lyrics are already separated by newlines.
+    // Split the lyrics using newline and ensure to remove empty lines.
+    const lines = prompt.split('\n').filter((line) => line.trim() !== '');
+    // Reassemble the processed lyrics lines into a single string, separated by newlines between each line.
+    // Additional formatting logic can be added here, such as adding specific markers or handling special lines.
+    return lines.join('\n');
+  }
+  /**
+   * Retrieves audio information for the given song IDs.
+   * @param songIds An optional array of song IDs to retrieve information for.
+   * @param page An optional page number to retrieve audio information from.
+   * @returns A promise that resolves to an array of AudioInfo objects.
+   */
+  public async get(
+    songIds?: string[],
     page?: string | null
   ): Promise<AudioInfo[]> {
     await this.keepAlive(false);
@@ -425,7 +588,8 @@ class SunoApi {
     if (songIds) {
       url.searchParams.append('ids', songIds.join(','));
     }
-	@@ -469,11 +717,11 @@ class SunoApi {
+    if (page) {
+      url.searchParams.append('page', page);
     }
     logger.info('Get audio status: ' + url.href);
     const response = await this.client.get(url.href, {
@@ -437,7 +601,47 @@ class SunoApi {
 
     return audios.map((audio: any) => ({
       id: audio.id,
-	@@ -523,13 +771,22 @@ class SunoApi {
+      title: audio.title,
+      image_url: audio.image_url,
+      lyric: audio.metadata.prompt
+        ? this.parseLyrics(audio.metadata.prompt)
+        : '',
+      audio_url: audio.audio_url,
+      video_url: audio.video_url,
+      created_at: audio.created_at,
+      model_name: audio.model_name,
+      status: audio.status,
+      gpt_description_prompt: audio.metadata.gpt_description_prompt,
+      prompt: audio.metadata.prompt,
+      type: audio.metadata.type,
+      tags: audio.metadata.tags,
+      duration: audio.metadata.duration,
+      error_message: audio.metadata.error_message
+    }));
+  }
+  /**
+   * Retrieves information for a specific audio clip.
+   * @param clipId The ID of the audio clip to retrieve information for.
+   * @returns A promise that resolves to an object containing the audio clip information.
+   */
+  public async getClip(clipId: string): Promise<object> {
+    await this.keepAlive(false);
+    const response = await this.client.get(
+      `${SunoApi.BASE_URL}/api/clip/${clipId}`
+    );
+    return response.data;
+  }
+  public async get_credits(): Promise<object> {
+    await this.keepAlive(false);
+    const response = await this.client.get(
+      `${SunoApi.BASE_URL}/api/billing/info/`
+    );
+    return {
+      credits_left: response.data.total_credits_left,
+      period: response.data.period,
+      monthly_limit: response.data.monthly_limit,
+      monthly_usage: response.data.monthly_usage
+    };
   }
 }
 
