@@ -13,7 +13,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-      "postinstall": "playwright install"
+      "postinstall": "playwright install chromium"
 
   },
    "dependencies": {
@@ -40,7 +40,7 @@
     "user-agents": "^1.1.156",
     "utf-8-validate": "^6.0.5",
     "yn": "^5.0.0",
-    "playwright": "^1.30.0"
+    "playwright": "^1.50.0"
 
   },
   "devDependencies": {
