@@ -1,4 +1,5 @@
-# Use the official Node.js 16 Debian-based image as the base
+# Use the official Node.js 16 Debian-based image as the base for the 
+builder stage
 FROM node:lts-buster-slim AS builder
 
 # Install necessary system dependencies for Playwright
@@ -84,7 +85,7 @@ RUN npm install -g pnpm
 # Install production dependencies
 RUN pnpm install --prod
 
-# Install Playwright browsers and dependencies
+# Install Playwright dependencies and browsers
 RUN pnpm exec playwright install-deps
 RUN pnpm exec playwright install
 
@@ -93,14 +94,14 @@ COPY --from=builder /src/.next ./.next
 COPY --from=builder /src/public ./public
 COPY --from=builder /src/package.json ./package.json
 
-# Expose the desired port (adjust if necessary)
-EXPOSE 3000
-
 # Set environment variables (ensure these are securely set in Vercel)
 ARG SUNO_COOKIE
 ARG BROWSER
 ENV SUNO_COOKIE=${SUNO_COOKIE}
 ENV BROWSER=${BROWSER:-chromium}
+
+# Expose the desired port (adjust if necessary)
+EXPOSE 3000
 
 # Start the application
 CMD ["pnpm", "start"]
