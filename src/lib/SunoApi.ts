@@ -395,6 +395,7 @@ class SunoApi {
       prompt,
       false,
       undefined,      
+	undefined,      
       make_instrumental,
       model,
       wait_audio,
