@@ -1,0 +1,50 @@
+name: Update pnpm-lock.yaml
+
+on:
+  push:
+    paths:
+      - 'package.json'
+      - '.github/workflows/update-lockfile.yml'
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # This is the default setting
+          fetch-depth: 0  # Fetch all history for accurate git operations
+
+      # Step 2: Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Specify your Node.js version
+          cache: 'pnpm'  # Enable pnpm caching
+
+      # Step 3: Install pnpm
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # Step 4: Install dependencies (updates pnpm-lock.yaml)
+      - name: Install dependencies
+        run: pnpm install
+
+      # Step 5: Check if pnpm-lock.yaml changed
+      - name: Check for pnpm-lock.yaml changes
+        id: lockfile_changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          git diff --cached --quiet || echo "lockfile_changed=true" >> $GITHUB_ENV
+
+      # Step 6: Commit and push changes if lockfile changed
+      - name: Commit and push changes
+        if: env.lockfile_changed == 'true'
+        run: |
+          git commit -m "Update pnpm-lock.yaml [skip ci]"
+          git push origin HEAD:${{ github.ref }}
