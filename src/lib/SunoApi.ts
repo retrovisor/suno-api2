@@ -374,10 +374,27 @@ class SunoApi {
       `https://clerk.suno.com/v1/client?__clerk_api_version=2021-02-05&_clerk_js_version=${SunoApi.CLERK_VERSION}&_method=PATCH`,
       { captcha_error: '300030,300030,300030' },
       { headers: { 'content-type': 'application/x-www-form-urlencoded' } });
-  }
+    }
 
   /**
-	
+   * Generate a song based on the prompt.
+   * @param prompt The text prompt to generate audio from.
+   * @param make_instrumental Indicates if the generated audio should be instrumental.
+   * @param wait_audio Indicates if the method should wait for the audio file to be fully generated before returning.
+   * @returns
+   */
+  public async generate(
+    prompt: string,
+    make_instrumental: boolean = false,
+    model?: string,
+    wait_audio: boolean = false
+  ): Promise<AudioInfo[]> {
+    await this.keepAlive(false);
+    const startTime = Date.now();
+    const audios = this.generateSongs(
+      prompt,
+      false,
+      undefined,      
       make_instrumental,
       model,
       wait_audio,
