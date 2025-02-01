@@ -10,7 +10,7 @@ RUN npm run build
 
 ### Final Stage
 FROM node:lts-buster
-WORKDIR /app
+WORKDIR /app 
 
 # Install OS dependencies required by Playwright/Chromium
 RUN apt-get update && apt-get install -y \
