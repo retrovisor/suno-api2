@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
-FROM node:lts-alpine AS builder
+FROM node:lts-buster AS builder
 WORKDIR /src
 COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm run build
 
-FROM node:lts-alpine
+FROM node:lts-buster
 WORKDIR /app
 COPY package*.json ./
 
@@ -20,8 +20,8 @@ ENV BROWSER=${BROWSER:-chromium}
 
 RUN npm install --only=production
 
- 
-# Create the symlink for the missing binary reference:
+# This will now download the official Chromium build (build 1148 for Playwright 1.49.0)
+RUN npx playwright install chromium
 
 COPY --from=builder /src/.next ./.next
 EXPOSE 3000
