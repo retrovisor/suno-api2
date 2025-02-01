@@ -24,9 +24,6 @@ RUN npm install --only=production
 RUN npx playwright install chromium
 
 # Create the symlink for the missing binary reference:
-RUN mkdir -p /root/.cache/ms-playwright/chromium_headless_shell-1148/chrome-linux && \
-    ln -s /root/.cache/ms-playwright/chromium_headless_shell-1155/chrome-linux/headless_shell \
-          /root/.cache/ms-playwright/chromium_headless_shell-1148/chrome-linux/headless_shell
 
 COPY --from=builder /src/.next ./.next
 EXPOSE 3000
