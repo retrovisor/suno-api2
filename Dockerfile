@@ -20,9 +20,7 @@ ENV BROWSER=${BROWSER:-chromium}
 
 RUN npm install --only=production
 
-# Install Chromium via Playwright
-RUN npx playwright install chromium
-
+ 
 # Create the symlink for the missing binary reference:
 
 COPY --from=builder /src/.next ./.next
