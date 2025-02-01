@@ -3,7 +3,7 @@
 ### Build Stage
 FROM node:lts-buster AS builder
 WORKDIR /src
-COPY package*.json ./
+COPY package*.json package-lock.json ./
 RUN npm install
 COPY . .
 RUN npm run build
@@ -12,7 +12,7 @@ RUN npm run build
 FROM node:lts-buster
 WORKDIR /app
 
-# Install OS dependencies required by Playwright and Chromium
+# Install OS dependencies required by Playwright/Chromium
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libnspr4 \
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package*.json ./
+COPY package*.json package-lock.json ./
 
 ARG SUNO_COOKIE
 ARG BROWSER
@@ -40,11 +40,11 @@ ENV SUNO_COOKIE=${SUNO_COOKIE}
 RUN if [ -z "$BROWSER" ]; then echo "Warning: BROWSER is not set; will use chromium by default"; fi
 ENV BROWSER=${BROWSER:-chromium}
 
-# Install production dependencies (ensure playwright 1.49.0 is installed from your package.json)
+# Install production dependencies (should install playwright@1.49.0 as per package.json)
 RUN npm install --only=production
 
-# This should now download the official Chromium build for Playwright 1.49.0 (build 1148)
-RUN npx playwright install chromium
+# Instead of using npx, run the locally installed playwright binary:
+RUN ./node_modules/.bin/playwright install chromium
 
 COPY --from=builder /src/.next ./.next
 EXPOSE 3000
