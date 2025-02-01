@@ -3,7 +3,7 @@
 ### Build Stage
 FROM node:lts-buster AS builder
 WORKDIR /src
-COPY package*.json package-lock.json ./
+COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm run build
